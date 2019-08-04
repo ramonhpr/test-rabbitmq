@@ -1,5 +1,6 @@
 #include <stdio.h> 
 #include <amqp.h>
+#include <ell/ell.h>
 
 int main()
 {
