@@ -1,4 +1,5 @@
 #include <stdio.h> 
+#include <amqp.h>
 
 int main()
 {
