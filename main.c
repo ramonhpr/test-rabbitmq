@@ -147,6 +147,11 @@ static int prepare_to_consume(amqp_connection_state_t* conn)
 		fprintf(stderr, "Out of memory while copying queue name");
 		return -1;
 	}
+
+	amqp_exchange_declare(*conn, 1, amqp_cstring_bytes(EXCHANGE_NAME),
+			      amqp_cstring_bytes("topic"), 0, 0, 0, 0,
+			      amqp_empty_table);
+
 	amqp_queue_bind(*conn, 1, queuename, amqp_cstring_bytes(EXCHANGE_NAME),
                         amqp_cstring_bytes(BINDING_KEY), amqp_empty_table);
 	if (amqp_get_rpc_reply(*conn).reply_type != AMQP_RESPONSE_NORMAL) {
