@@ -96,7 +96,7 @@ static void amqp_stop(amqp_connection_state_t conn)
 	amqp_destroy_connection(conn);
 }
 
-static void start_timeout(struct l_timeout* timeout, void* user_data)
+static bool on_receive(struct l_io* io, void* user_data)
 {
 	amqp_connection_state_t* conn_p = user_data;
 	amqp_connection_state_t conn = *conn_p;
@@ -104,13 +104,13 @@ static void start_timeout(struct l_timeout* timeout, void* user_data)
       	amqp_envelope_t envelope;
 	struct timeval time_out = { .tv_usec=10000 };
 
-      	amqp_maybe_release_buffers(conn);
+	if (amqp_release_buffers_ok(conn))
+		amqp_release_buffers(conn);
 
       	res = amqp_consume_message(conn, &envelope, &time_out, 0);
 
       	if (AMQP_RESPONSE_NORMAL != res.reply_type) {
-		l_timeout_modify_ms(timeout, 500);
-		return;
+		return true;
       	}
 
      	printf("Delivery %u, exchange %.*s routingkey %.*s\n",
@@ -129,7 +129,7 @@ static void start_timeout(struct l_timeout* timeout, void* user_data)
       	printf("----\n");
 	amqp_destroy_envelope(&envelope);
 
-	l_timeout_modify_ms(timeout, 500);
+	return true;
 }
 
 static int prepare_to_consume(amqp_connection_state_t* conn)
@@ -166,15 +166,22 @@ int main()
 {
 	int err = EXIT_FAILURE;
 	amqp_connection_state_t conn;
+	struct l_io* amqp_io;
 
 	fprintf(stderr, "Starting\n");
 	if (!l_main_loop_init())
 		goto fail;
 	conn = amqp_start();
+
 	if (prepare_to_consume(&conn) < 0)
 		goto fail_conn;
-	l_timeout_create_ms(500, start_timeout, &conn, NULL);
+
+	amqp_io = l_io_new(amqp_get_sockfd(conn));
+
+	l_io_set_read_handler(amqp_io, on_receive, &conn, NULL);
+
 	l_main_loop_run();
+	l_io_destroy(amqp_io);
 fail_conn:
 	amqp_stop(conn);
 	fprintf(stderr, "Exiting\n");
